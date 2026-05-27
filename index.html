@@ -85,14 +85,13 @@
       color: #666;
     }
     
-    .success {
-      color: #27ae60;
-      margin-top: 15px;
-      font-size: 14px;
-      display: none;
-      background: #e8f8f5;
+    .info {
+      margin-top: 20px;
       padding: 10px;
+      background: #f0f2f5;
       border-radius: 8px;
+      font-size: 12px;
+      color: #555;
     }
     
     .spinner {
@@ -120,15 +119,17 @@
       <span>📘</span> Login with Facebook
     </button>
     <div id="error-msg" class="error"></div>
-    <div id="success-msg" class="success"></div>
     <div id="loading" class="loading">
-      <div class="spinner"></div> Processing login...
+      <div class="spinner"></div> Redirecting to Facebook...
+    </div>
+    <div class="info">
+      🔐 You will be redirected to Facebook for login
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-    import { getAuth, signInWithPopup, FacebookAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+    import { getAuth, signInWithRedirect, getRedirectResult, FacebookAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
     import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -141,7 +142,6 @@
       measurementId: "G-C14SR2RZWS"
     };
     
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -152,20 +152,16 @@
 
     const loginBtn = document.getElementById('facebook-login-btn');
     const errorMsg = document.getElementById('error-msg');
-    const successMsg = document.getElementById('success-msg');
     const loadingDiv = document.getElementById('loading');
 
     // Function to save user data to Firestore
     async function saveUserToDatabase(user) {
-      if (!user) {
-        console.log('No user provided to save');
-        return false;
-      }
+      if (!user) return false;
       
       try {
-        console.log('Saving user to database:', user.uid);
-        
+        console.log('💾 Saving user to database:', user.uid);
         const userRef = doc(db, "users", user.uid);
+        
         const userData = {
           uid: user.uid,
           name: user.displayName || 'Facebook User',
@@ -179,12 +175,11 @@
         };
         
         await setDoc(userRef, userData, { merge: true });
-        console.log('✅ User data successfully saved to Firestore!');
+        console.log('✅ User data saved successfully!');
         return true;
         
       } catch (error) {
-        console.error('❌ Error saving user to database:', error);
-        console.error('Error details:', error.message);
+        console.error('❌ Error saving user:', error);
         return false;
       }
     }
@@ -192,62 +187,54 @@
     // Check if user is already logged in
     onAuthStateChanged(auth, async (user) => {
       if (user) {
-        console.log('User already logged in:', user.uid);
+        console.log('👤 User already logged in:', user.uid);
         await saveUserToDatabase(user);
-        window.location.href = 'dashboard.html';
+        window.location.replace('dashboard.html');
       }
     });
 
-    // Login with Popup (Better than redirect for GitHub Pages)
-    loginBtn.addEventListener('click', async () => {
-      console.log('Login button clicked');
-      
-      // Show loading
+    // Handle redirect result (when coming back from Facebook)
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result && result.user) {
+          console.log('🎉 Login successful via redirect!', result.user.uid);
+          loadingDiv.style.display = 'block';
+          loadingDiv.innerHTML = '<div class="spinner"></div> Saving your data...';
+          
+          // Save user data to database
+          await saveUserToDatabase(result.user);
+          
+          // Redirect to dashboard
+          window.location.replace('dashboard.html');
+        }
+      })
+      .catch((error) => {
+        console.error('Redirect error:', error);
+        
+        // Ignore popup-closed error since we're using redirect
+        if (error.code !== 'auth/popup-closed-by-user') {
+          errorMsg.style.display = 'block';
+          
+          if (error.code === 'auth/unauthorized-domain') {
+            errorMsg.innerHTML = `⚠️ Domain not authorized! <br> Add this domain to Firebase Console:<br> <strong>${window.location.origin}</strong>`;
+          } else {
+            errorMsg.innerHTML = `❌ Error: ${error.message}`;
+          }
+        }
+        
+        loadingDiv.style.display = 'none';
+        loginBtn.disabled = false;
+      });
+
+    // Login button click - using redirect (no popup issues!)
+    loginBtn.addEventListener('click', () => {
+      console.log('🔵 Login button clicked - redirecting to Facebook');
       loadingDiv.style.display = 'block';
       loginBtn.disabled = true;
       errorMsg.style.display = 'none';
-      successMsg.style.display = 'none';
       
-      try {
-        // Sign in with popup
-        const result = await signInWithPopup(auth, provider);
-        console.log('Login successful:', result.user);
-        
-        // Save user data to database
-        const saved = await saveUserToDatabase(result.user);
-        
-        if (saved) {
-          successMsg.style.display = 'block';
-          successMsg.innerHTML = '✅ Login successful! Saving your data...';
-          
-          // Wait a moment then redirect
-          setTimeout(() => {
-            window.location.href = 'dashboard.html';
-          }, 1500);
-        } else {
-          errorMsg.style.display = 'block';
-          errorMsg.innerHTML = '⚠️ Login successful but data not saved. Please check database configuration.';
-          loginBtn.disabled = false;
-          loadingDiv.style.display = 'none';
-        }
-        
-      } catch (error) {
-        console.error('Login error:', error);
-        loadingDiv.style.display = 'none';
-        loginBtn.disabled = false;
-        
-        if (error.code === 'auth/unauthorized-domain') {
-          errorMsg.innerHTML = `⚠️ Domain not authorized! <br> Please add this domain to Firebase Console:<br> <strong>${window.location.origin}</strong>`;
-        } else if (error.code === 'auth/popup-blocked') {
-          errorMsg.innerHTML = '⚠️ Popup blocked! Please allow popups for this website.';
-        } else if (error.code === 'auth/network-request-failed') {
-          errorMsg.innerHTML = '⚠️ Network error! Please check your internet connection.';
-        } else {
-          errorMsg.innerHTML = `❌ Login failed: ${error.message}`;
-        }
-        
-        errorMsg.style.display = 'block';
-      }
+      // Use redirect instead of popup
+      signInWithRedirect(auth, provider);
     });
   </script>
 </body>

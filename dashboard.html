@@ -149,27 +149,12 @@
       background: #fde8e8;
       color: #e74c3c;
     }
-    
-    .refresh-btn {
-      background: #3498db;
-      color: white;
-      border: none;
-      padding: 8px 15px;
-      border-radius: 5px;
-      cursor: pointer;
-      margin-top: 10px;
-      font-size: 12px;
-    }
-    
-    .refresh-btn:hover {
-      background: #2980b9;
-    }
   </style>
 </head>
 <body>
   <div id="loading-container" class="loading-container">
     <div class="loader"></div>
-    <p>Loading your profile from database...</p>
+    <p>Loading your profile...</p>
   </div>
   
   <div id="dashboard" class="container hidden">
@@ -198,22 +183,17 @@
           <span class="info-label">🕐 Last Login</span>
           <span class="info-value" id="last-login"></span>
         </div>
-        <div class="info-item">
-          <span class="info-label">💾 Data Source</span>
-          <span class="info-value" id="data-source"></span>
-        </div>
       </div>
       
       <div id="db-status" class="db-status"></div>
-      <button id="refresh-btn" class="refresh-btn">🔄 Refresh Data</button>
-      <button id="logout-btn" class="logout-btn" style="margin-top: 10px;">🚪 Logout</button>
+      <button id="logout-btn" class="logout-btn">🚪 Logout</button>
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBB3RRMw0MinDO1MPd2D6Ud-QAew-1ckzY",
@@ -237,137 +217,65 @@
     const userEmail = document.getElementById('user-email');
     const createdAtSpan = document.getElementById('created-at');
     const lastLoginSpan = document.getElementById('last-login');
-    const dataSourceSpan = document.getElementById('data-source');
     const dbStatus = document.getElementById('db-status');
-    const refreshBtn = document.getElementById('refresh-btn');
     const logoutBtn = document.getElementById('logout-btn');
 
-    // Function to load user data from Firestore
+    // Load user data from Firestore
     async function loadUserData(uid) {
       try {
-        console.log('Fetching user data from Firestore for UID:', uid);
         const userRef = doc(db, "users", uid);
         const userDoc = await getDoc(userRef);
         
         if (userDoc.exists()) {
-          const data = userDoc.data();
-          console.log('✅ User data found in Firestore:', data);
-          return data;
-        } else {
-          console.log('⚠️ No user document found in Firestore');
-          return null;
+          return userDoc.data();
         }
+        return null;
       } catch (error) {
-        console.error('❌ Error loading user data:', error);
+        console.error('Error loading user data:', error);
         return null;
       }
     }
 
-    // Function to update last login
-    async function updateLastLogin(uid) {
-      try {
-        const userRef = doc(db, "users", uid);
-        await updateDoc(userRef, {
-          lastLogin: new Date().toISOString()
-        });
-        console.log('✅ Last login updated');
-        return true;
-      } catch (error) {
-        console.error('Error updating last login:', error);
-        return false;
-      }
-    }
-
-    // Function to display user data
+    // Display user data
     function displayUserData(user, dbData) {
-      // Basic user info from Auth
       profilePic.src = user.photoURL || `https://ui-avatars.com/api/?background=1877f2&color=fff&name=${encodeURIComponent(user.displayName || 'User')}`;
       userName.textContent = user.displayName || 'Facebook User';
       userUid.textContent = user.uid;
       userEmail.textContent = user.email || 'Not provided';
       
-      // Database info
       if (dbData) {
-        if (dbData.createdAt) {
-          const createdDate = new Date(dbData.createdAt);
-          createdAtSpan.textContent = createdDate.toLocaleString();
-        } else {
-          createdAtSpan.textContent = 'Not available';
-        }
-        
-        if (dbData.lastLogin) {
-          const lastLoginDate = new Date(dbData.lastLogin);
-          lastLoginSpan.textContent = lastLoginDate.toLocaleString();
-        } else {
-          lastLoginSpan.textContent = 'Just now';
-        }
-        
-        dataSourceSpan.textContent = '✅ Firestore Database';
-        dbStatus.textContent = '✅ Data loaded from Firestore successfully!';
+        createdAtSpan.textContent = dbData.createdAt ? new Date(dbData.createdAt).toLocaleString() : 'Just now';
+        lastLoginSpan.textContent = dbData.lastLogin ? new Date(dbData.lastLogin).toLocaleString() : 'Just now';
+        dbStatus.textContent = '✅ Data saved in Firestore Database';
         dbStatus.className = 'db-status db-success';
       } else {
         createdAtSpan.textContent = 'Not in database';
-        lastLoginSpan.textContent = 'Run login again';
-        dataSourceSpan.textContent = '⚠️ Local only (not in DB)';
-        dbStatus.textContent = '⚠️ User data not found in Firestore. Please login again.';
+        lastLoginSpan.textContent = 'Login again to save';
+        dbStatus.textContent = '⚠️ Data not found in database. Please login again.';
         dbStatus.className = 'db-status db-error';
       }
     }
 
-    // Main auth state handler
+    // Auth state handler
     onAuthStateChanged(auth, async (user) => {
-      console.log("Auth state changed:", user ? `User: ${user.uid}` : "No user");
+      console.log("Auth state:", user ? `User: ${user.uid}` : "No user");
       
       if (user) {
-        try {
-          // Update last login
-          await updateLastLogin(user.uid);
-          
-          // Load data from database
-          const dbData = await loadUserData(user.uid);
-          
-          // Display all data
-          displayUserData(user, dbData);
-          
-          // Show dashboard
-          loadingDiv.classList.add('hidden');
-          dashboard.classList.remove('hidden');
-          
-        } catch (error) {
-          console.error("Error in dashboard:", error);
-          // Still show basic info even if DB fails
-          displayUserData(user, null);
-          loadingDiv.classList.add('hidden');
-          dashboard.classList.remove('hidden');
-        }
-      } else {
-        // No user - redirect to login
-        console.log("No user found, redirecting to index.html");
-        window.location.href = 'index.html';
-      }
-    });
-
-    // Refresh data button
-    refreshBtn.addEventListener('click', async () => {
-      const user = auth.currentUser;
-      if (user) {
-        refreshBtn.disabled = true;
-        refreshBtn.textContent = 'Loading...';
-        
         const dbData = await loadUserData(user.uid);
         displayUserData(user, dbData);
         
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = '🔄 Refresh Data';
+        loadingDiv.classList.add('hidden');
+        dashboard.classList.remove('hidden');
+      } else {
+        window.location.replace('index.html');
       }
     });
 
-    // Logout function
+    // Logout
     logoutBtn.addEventListener('click', async () => {
       try {
         await signOut(auth);
-        console.log("User logged out");
-        window.location.href = 'index.html';
+        window.location.replace('index.html');
       } catch (error) {
         console.error('Logout error:', error);
         alert('Error logging out: ' + error.message);

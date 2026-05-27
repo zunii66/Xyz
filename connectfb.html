@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facebook Login via Firebase</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #f0f2f5;
+    }
+    .container {
+      text-align: center;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 400px;
+    }
+    .hidden { display: none; }
+    #login-btn {
+      background: #1877f2;
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #login-btn:hover { background: #166fe5; }
+    #dashboard img {
+      border-radius: 50%;
+      width: 100px;
+      height: 100px;
+      margin: 20px 0 10px;
+      border: 3px solid #1877f2;
+    }
+    #user-name { margin: 10px 0 5px; }
+    #user-uid, #user-email { color: #555; font-size: 14px; }
+    #logout-btn {
+      background: #e4e6eb;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      margin-top: 20px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    #logout-btn:hover { background: #d8dadf; }
+    .note { margin-top: 15px; font-size: 12px; color: #888; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 🔹 Login Section -->
+    <div id="login-section" class="container">
+      <h2>Welcome</h2>
+      <p>Click below to login with Facebook</p>
+      <button id="login-btn">Facebook Login</button>
+      <p class="note">GitHub Pages Test</p>
+    </div>
+
+    <!-- 🔹 Dashboard Section -->
+    <div id="dashboard" class="container hidden">
+      <h2>Dashboard</h2>
+      <img id="profile-pic" src="" alt="Profile">
+      <h3 id="user-name"></h3>
+      <p><strong>UID:</strong> <span id="user-uid"></span></p>
+      <p id="user-email"></p>
+      <button id="logout-btn">Logout</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK using ES Modules -->
+  <script type="module">
+    // Firebase App & Auth imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+    import {
+      getAuth,
+      FacebookAuthProvider,
+      signInWithRedirect,
+      getRedirectResult,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+
+    // Aapki Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBB3RRMw0MinDO1MPd2D6Ud-QAew-1ckzY",
+      authDomain: "mywebsite-852ab.firebaseapp.com",
+      projectId: "mywebsite-852ab",
+      storageBucket: "mywebsite-852ab.firebasestorage.app",
+      messagingSenderId: "300123917348",
+      appId: "1:300123917348:web:53a1c10b54a8928a8a9cb1",
+      measurementId: "G-C14SR2RZWS"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // UI elements
+    const loginSection = document.getElementById('login-section');
+    const dashboard = document.getElementById('dashboard');
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const profilePic = document.getElementById('profile-pic');
+    const userName = document.getElementById('user-name');
+    const userUid = document.getElementById('user-uid');
+    const userEmail = document.getElementById('user-email');
+
+    // Facebook Login
+    loginBtn.addEventListener('click', () => {
+      const provider = new FacebookAuthProvider();
+      // Redirect method - mobile friendly
+      signInWithRedirect(auth, provider);
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', () => {
+      signOut(auth);
+    });
+
+    // Handle redirect result when page loads after FB login
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          // User signed in
+          showDashboard(result.user);
+        }
+      })
+      .catch((error) => {
+        console.error("Login error:", error.message);
+        alert("Login failed: " + error.message);
+      });
+
+    // Auth state observer
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        showDashboard(user);
+      } else {
+        showLogin();
+      }
+    });
+
+    function showDashboard(user) {
+      loginSection.classList.add('hidden');
+      dashboard.classList.remove('hidden');
+      userName.textContent = user.displayName || 'No Name';
+      userUid.textContent = user.uid;
+      userEmail.textContent = user.email || 'No Email';
+      profilePic.src = user.photoURL || 'https://via.placeholder.com/100';
+    }
+
+    function showLogin() {
+      dashboard.classList.add('hidden');
+      loginSection.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>

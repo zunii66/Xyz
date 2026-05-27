@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facebook Login</title>
+  <style>
+    body { font-family: Arial; display: flex; justify-content: center; align-items: center; height: 100vh; margin:0; background: #f0f2f5; }
+    .container { text-align: center; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    button { background: #1877f2; color: white; border: none; padding: 12px 30px; border-radius: 8px; font-size: 16px; cursor: pointer; }
+    #loading { margin-top: 20px; color: #555; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Login with Facebook</h2>
+    <button id="fb-login-btn">Continue with Facebook</button>
+    <div id="loading" class="hidden">Processing login, please wait...</div>
+    <p id="error-msg" style="color:red;"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+    import { getAuth, FacebookAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBB3RRMw0MinDO1MPd2D6Ud-QAew-1ckzY",
+      authDomain: "mywebsite-852ab.firebaseapp.com",
+      projectId: "mywebsite-852ab",
+      storageBucket: "mywebsite-852ab.firebasestorage.app",
+      messagingSenderId: "300123917348",
+      appId: "1:300123917348:web:53a1c10b54a8928a8a9cb1",
+      measurementId: "G-C14SR2RZWS"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    const loginBtn = document.getElementById('fb-login-btn');
+    const loading = document.getElementById('loading');
+    const errorMsg = document.getElementById('error-msg');
+
+    // Agar user already logged in hai to seedha dashboard le jao
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        window.location.replace('dashboard.html');
+      }
+    });
+
+    // Redirect result handle (jab page wapas aaye login ke baad)
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          window.location.replace('dashboard.html');
+        }
+      })
+      .catch((error) => {
+        errorMsg.textContent = "Login failed: " + error.message;
+        loading.classList.add('hidden');
+      });
+
+    // Login button click
+    loginBtn.addEventListener('click', () => {
+      loading.classList.remove('hidden');
+      errorMsg.textContent = '';
+      const provider = new FacebookAuthProvider();
+      signInWithRedirect(auth, provider);
+      // Note: page redirect hoga, ye code further nahi chalega
+    });
+  </script>
+</body>
+</html>
